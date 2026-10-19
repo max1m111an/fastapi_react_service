@@ -1,0 +1,61 @@
+services:
+  backend_main:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_PORT: ${APP_PORT:-8080}
+    restart: unless-stopped
+    depends_on:
+      - database
+    ports:
+      - "${APP_PORT:-8080}:${APP_PORT:-8080}"
+    env_file:
+      - .env
+    volumes:
+      - ./apps/backend:/app/apps/backend
+      - ./database:/app/database
+    networks:
+      - app_network
+
+  database:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    shm_size: 128mb
+    env_file:
+      - .env
+    ports:
+      - "${DB_PORT}:3306"
+    networks:
+      - app_network
+
+  adminer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - 8080:8080
+    networks:
+      - app_network
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - backend_main
+    ports:
+      - 80:80
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  mariadb_data:
