@@ -16,6 +16,19 @@
 # • SECURITY CONSIDERATIONS: Includes security patterns for .env files and credentials
 # • BEST PRACTICES: Review before use, test with your specific React setup
 
+# Local environments, VCS and caches (project specific)
+.venv/
+venv/
+.env/
+.git/
+.idea/
+.vscode/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 # Security & Sensitive Data
 # ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••

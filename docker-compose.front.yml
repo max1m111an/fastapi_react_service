@@ -1,28 +1,24 @@
 services:
-  nginx:
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile
-    restart: always
-    ports:
-      - 80:80
-    volumes:
-      - ./nginx/nginx.front.conf:/etc/nginx/nginx.conf:ro
-
-  frontend_main:
-    build:
-      context: .
-      dockerfile: Dockerfile
+      target: frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}"
-    env_file:
-      - .env
-    volumes:
-      - ./apps/frontend:/app/apps/frontend
+      - "${FRONTEND_PORT:-3000}:80"
     networks:
       - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 networks:
   app_network:
     driver: bridge
+
+volumes:
+  mariadb_data:

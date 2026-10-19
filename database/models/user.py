@@ -6,5 +6,6 @@ class UserModel(Base):
     __tablename__ = "users"
     
     id: Mapped[int_pk]
-    username: Mapped[str] = mapped_column(String, unique=True, index=True)
-    password: Mapped[str] = mapped_column(String)
+    username: Mapped[str] = mapped_column(String(150), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    password: Mapped[str] = mapped_column(String(255))

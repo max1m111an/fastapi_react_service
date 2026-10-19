@@ -1,9 +1,9 @@
 services:
-  backend_main:
+  fastapi:
     build:
       context: .
       dockerfile: Dockerfile
-      target: backend_main
+      target: fastapi
       args:
         APP_PORT: ${APP_PORT:-8080}
     restart: unless-stopped
@@ -14,16 +14,24 @@ services:
       - "${APP_PORT:-8080}:${APP_PORT:-8080}"
     env_file:
       - .env
+    environment:
+      DB_HOST: database
+      DB_PORT: "3306"
     volumes:
       - ./apps/backend:/app/apps/backend
       - ./database:/app/database
     networks:
       - app_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/hello"]
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('APP_PORT', '8080') + '/hello', timeout=3)\"",
+        ]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 10
+      start_period: 10s
 
   database:
     build:
@@ -32,10 +40,13 @@ services:
       target: database
     restart: always
     shm_size: 128mb
-    env_file:
-      - .env
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-12345}
+      MARIADB_DATABASE: ${DB_NAME:-mydb}
+      MARIADB_USER: ${DB_USER:-admin}
+      MARIADB_PASSWORD: ${DB_PASS:-pass}
     ports:
-      - "${DB_PORT}:3306"
+      - "${DB_PORT:-3306}:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./database/dumps:/docker-entrypoint-initdb.d:ro
@@ -53,10 +64,10 @@ services:
       context: .
       dockerfile: Dockerfile
       target: adminer
+    restart: unless-stopped
     depends_on:
       database:
         condition: service_healthy
-    restart: always
     ports:
       - "${ADMINER_PORT:-8081}:8080"
     networks:
@@ -69,12 +80,22 @@ services:
       target: nginx
     restart: always
     depends_on:
-      backend_main:
+      fastapi:
+        condition: service_healthy
+      frontend:
         condition: service_healthy
     ports:
-      - 80:80
+      - "80:80"
     volumes:
-      - ./nginx/nginx.back.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 networks:
   app_network:
