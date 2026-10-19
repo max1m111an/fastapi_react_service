@@ -11,6 +11,12 @@ DC_BACK        := docker compose -f $(COMPOSE_BACK)
 DC_FRONT       := docker compose -f $(COMPOSE_FRONT)
 DC_ALL         := docker compose
 
+# Dependency control
+PYTHON         ?= python
+VENV           := .venv
+VENV_PY        := $(VENV)/Scripts/python.exe
+FRONTEND_DIR   := apps/frontend
+
 # --- Справка ------------------------------------------------------------------
 .PHONY: help
 help: ## Show available commands
@@ -37,10 +43,6 @@ back-ps: ## Show backend container status
 back-restart: ## Restart backend
 	$(DC_BACK) restart
 
-.PHONY: back-shell
-back-shell: ## Open shell in fastapi container
-	$(DC_BACK) exec fastapi /bin/sh
-
 .PHONY: back-build
 back-build: ## Build backend images only (no start)
 	$(DC_BACK) build
@@ -66,15 +68,11 @@ front-ps: ## Show frontend container status
 front-restart: ## Restart frontend
 	$(DC_FRONT) restart
 
-.PHONY: front-shell
-front-shell: ## Open shell in frontend container
-	$(DC_FRONT) exec frontend /bin/sh
-
 .PHONY: front-build
 front-build: ## Build frontend images only (no start)
 	$(DC_FRONT) build
 
-# --- Всё вместе ---------------------------------------------------------------
+# --- All ---------------------------------------------------------------
 .PHONY: up
 up: ## Build and start everything (backend + frontend)
 	$(DC_ALL) up --build -d
@@ -95,24 +93,40 @@ ps: ## Show status of all containers
 restart: ## Restart everything
 	$(DC_ALL) restart
 
-# --- Очистка ------------------------------------------------------------------
-.PHONY: clean
-clean: ## Stop everything and remove volumes (WARNING: deletes DB data!)
-	$(DC_ALL) down -v
+# --- Dependency control (venv / Poetry) ---------------------------------------
+.PHONY: venv
+venv: ## Create the .venv virtual environment
+	$(PYTHON) -m venv $(VENV)
+	$(VENV_PY) -m pip install --upgrade pip
 
-.PHONY: prune
-prune: ## Remove unused Docker images, containers and networks
-	docker system prune -f
+.PHONY: install-poetry
+install-poetry: ## Install Poetry (pip install --user poetry)
+	$(PYTHON) -m pip install --user poetry
 
-# --- Утилиты ------------------------------------------------------------------
-.PHONY: config-back
-config-back: ## Validate backend compose config
-	$(DC_BACK) config
+.PHONY: poetry-env
+poetry-env: venv ## Bind Poetry to the project .venv
+	poetry env use $(VENV_PY)
 
-.PHONY: config-front
-config-front: ## Validate frontend compose config
-	$(DC_FRONT) config
+.PHONY: deps-install
+deps-install: ## Install Python dependencies with Poetry
+	poetry install
 
-.PHONY: config-all
-config-all: ## Validate both compose configs
-	$(DC_ALL) config
+.PHONY: deps-export
+deps-export: ## Export locked dependencies to requirements.txt
+	poetry export --without-hashes -o requirements.txt
+
+.PHONY: deps-add
+deps-add: ## Add a Python dependency (usage: make deps-add DEP=requests)
+	poetry add $(DEP)
+
+.PHONY: deps-update
+deps-update: ## Update Python dependencies within version constraints
+	poetry update
+
+.PHONY: deps
+deps: venv install-poetry poetry-env deps-install ## Full local setup: venv + Poetry + dependencies
+	@echo "Python dependencies are ready. Run 'make deps-export' to refresh requirements.txt."
+
+.PHONY: front-install
+front-install: ## Install frontend dependencies (npm ci)
+	npm --prefix $(FRONTEND_DIR) ci

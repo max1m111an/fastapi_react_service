@@ -1,5 +1,6 @@
 services:
   frontend:
+    container_name: frontend
     build:
       context: .
       dockerfile: Dockerfile
@@ -19,6 +20,3 @@ services:
 networks:
   app_network:
     driver: bridge
-
-volumes:
-  mariadb_data:

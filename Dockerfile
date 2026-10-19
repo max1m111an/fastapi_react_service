@@ -42,5 +42,7 @@ EXPOSE 80
 
 # --- Infrastructure images ---------------------------------------------------
 FROM mariadb:latest AS database
+
 FROM adminer:latest AS adminer
+
 FROM nginx:alpine AS nginx
