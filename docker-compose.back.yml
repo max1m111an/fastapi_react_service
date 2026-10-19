@@ -3,11 +3,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: backend_main
       args:
         APP_PORT: ${APP_PORT:-8080}
     restart: unless-stopped
     depends_on:
-      - database
+      database:
+        condition: service_healthy
     ports:
       - "${APP_PORT:-8080}:${APP_PORT:-8080}"
     env_file:
@@ -17,27 +19,46 @@ services:
       - ./database:/app/database
     networks:
       - app_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/hello"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   database:
     build:
       context: .
       dockerfile: Dockerfile
+      target: database
     restart: always
     shm_size: 128mb
     env_file:
       - .env
     ports:
       - "${DB_PORT}:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./database/dumps:/docker-entrypoint-initdb.d:ro
     networks:
       - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   adminer:
     build:
       context: .
       dockerfile: Dockerfile
+      target: adminer
+    depends_on:
+      database:
+        condition: service_healthy
     restart: always
     ports:
-      - 8080:8080
+      - "${ADMINER_PORT:-8081}:8080"
     networks:
       - app_network
 
@@ -45,13 +66,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: nginx
     restart: always
     depends_on:
-      - backend_main
+      backend_main:
+        condition: service_healthy
     ports:
       - 80:80
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.back.conf:/etc/nginx/nginx.conf:ro
 
 networks:
   app_network:

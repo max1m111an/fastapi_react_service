@@ -35,6 +35,7 @@ poetry env use python
 ```
 pip install poetry
 poetry install
+poetry export --without-hashes -o requirements.txt                                                                                
 ```
 
 To add dep:
